@@ -393,7 +393,7 @@ PAGE = r"""<!doctype html>
       <input id="f_diseases" placeholder="codes appear here; you can also type">
       <div class="dxsections" id="dxSections"></div></div>
     <div class="field"><label>evidence</label><textarea id="f_evidence"></textarea>
-      <div class="hint">Select text in the left pane to auto-fill "chars at offset N".</div></div>
+      <div class="hint">Select text in the left pane, then click here to add "chars at offset N". Repeat to add more, separated by " | ".</div></div>
     <div class="field"><label>hex (U+XXXX ...)</label><input id="f_hex">
       <div class="warn" id="hexWarn" style="display:none">F1/E3: leave hex empty. Never paste the value.</div></div>
     <div class="field"><label>note</label><input id="f_note"></div>
@@ -736,9 +736,20 @@ document.getElementById('diag').addEventListener('mouseup', onCursor);
 document.getElementById('diag').addEventListener('keyup', onCursor);
 document.addEventListener('selectionchange', ()=>{ if(document.activeElement && document.activeElement.tagName==='TEXTAREA') return; onCursor(); });
 
-// use current selection to fill evidence+hex
-$('f_evidence').addEventListener('focus', ()=>{ if(window._selFill && !$('f_evidence').value){ $('f_evidence').value=window._selFill.evidence; } });
-$('f_hex').addEventListener('focus', ()=>{ if(window._selFill && !$('f_hex').value){ $('f_hex').value=window._selFill.hex; } });
+// use current selection to fill evidence+hex.
+// Multiple selections accumulate, separated by " | ", so you can cite several
+// pieces of evidence (e.g. "posted by gamer chick at offset 13 | More Similar
+// Questions at offset 3086"). The same selection is not appended twice in a row.
+function appendPart(field, part){
+  if(!part) return;
+  const cur = field.value;
+  const parts = cur.split(' | ').map(s=>s.trim()).filter(Boolean);
+  if(parts.length && parts[parts.length-1] === part.trim()) return; // avoid dup
+  field.value = cur.trim() ? cur.trim()+' | '+part : part;
+  renderRowPreview();
+}
+$('f_evidence').addEventListener('focus', ()=>{ if(window._selFill){ appendPart($('f_evidence'), window._selFill.evidence); window._selFill=null; } });
+$('f_hex').addEventListener('focus', ()=>{ if(window._selFill){ appendPart($('f_hex'), window._selFill.hex); window._selFill=null; } });
 $('f_diseases').addEventListener('input', ()=>{ syncDiseaseChecks(); updateHexWarn(); renderRowPreview(); });
 ['f_read','f_verdict','f_evidence','f_hex','f_note'].forEach(id=>{
   $(id).addEventListener('input', renderRowPreview);
